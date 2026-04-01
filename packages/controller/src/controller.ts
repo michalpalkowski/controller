@@ -398,16 +398,26 @@ export default class ControllerProvider extends BaseProvider {
    * that subsequent `execute()` calls route through the new endpoint.
    */
   async switchRpc(rpcUrl: string): Promise<void> {
-    if (!this.keychain) {
+    if (!this.keychain || !this.iframes?.keychain) {
       throw new NotReadyToConnect();
     }
 
     await this.keychain.switchChain(rpcUrl);
 
-    // Recreate account with the new RPC so execute() uses the new provider.
-    // probe() internally calls keychain.probe(rpcUrl) and builds a fresh
-    // ControllerAccount bound to the returned rpcUrl.
-    await this.probe();
+    // Recreate account with the shard RPC URL directly.
+    // We cannot use probe() here because probe() calls this.rpcUrl() which
+    // resolves through the chains Map — shard URLs are not in that Map.
+    const response = (await this.keychain.probe(rpcUrl)) as ProbeReply;
+    const resolvedRpcUrl = response?.rpcUrl || rpcUrl;
+
+    this.account = new ControllerAccount(
+      this,
+      resolvedRpcUrl,
+      response.address,
+      this.keychain,
+      this.options,
+      this.iframes.keychain,
+    );
   }
 
   addStarknetChain(_chain: AddStarknetChainParameters): Promise<boolean> {
