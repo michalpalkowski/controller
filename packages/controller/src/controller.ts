@@ -408,11 +408,17 @@ export default class ControllerProvider extends BaseProvider {
     // We cannot use probe() here because probe() calls this.rpcUrl() which
     // resolves through the chains Map — shard URLs are not in that Map.
     const response = (await this.keychain.probe(rpcUrl)) as ProbeReply;
-    const resolvedRpcUrl = response?.rpcUrl || rpcUrl;
 
+    if (!response?.address) {
+      throw new Error(
+        `switchRpc failed: keychain.probe(${rpcUrl}) did not return an address`,
+      );
+    }
+
+    // Use the exact URL we switched to — no fallback to chains Map.
     this.account = new ControllerAccount(
       this,
-      resolvedRpcUrl,
+      rpcUrl,
       response.address,
       this.keychain,
       this.options,
