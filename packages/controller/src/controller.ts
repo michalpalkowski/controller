@@ -386,6 +386,30 @@ export default class ControllerProvider extends BaseProvider {
     return true;
   }
 
+  /**
+   * Switch the keychain's active RPC endpoint and recreate the account.
+   *
+   * Unlike `switchStarknetChain` (which resolves chainId → rpcUrl via the
+   * pre-configured chain list), this method accepts an **arbitrary RPC URL**.
+   * This is necessary for shard Katana instances that fork the main chain
+   * and share its chainId — they cannot be registered as a separate chain.
+   *
+   * After switching, `this.account` is recreated with the new provider so
+   * that subsequent `execute()` calls route through the new endpoint.
+   */
+  async switchRpc(rpcUrl: string): Promise<void> {
+    if (!this.keychain) {
+      throw new NotReadyToConnect();
+    }
+
+    await this.keychain.switchChain(rpcUrl);
+
+    // Recreate account with the new RPC so execute() uses the new provider.
+    // probe() internally calls keychain.probe(rpcUrl) and builds a fresh
+    // ControllerAccount bound to the returned rpcUrl.
+    await this.probe();
+  }
+
   addStarknetChain(_chain: AddStarknetChainParameters): Promise<boolean> {
     return Promise.resolve(true);
   }
